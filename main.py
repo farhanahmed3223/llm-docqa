@@ -1,26 +1,33 @@
-import openai, os, sys, textwrap
+import openai, os, sys, argparse, textwrap
 
-openai.api_key = os.environ.get("OPENAI_API_KEY")
-if not openai.api_key:
-    print("Set OPENAI_API_KEY first")
-    sys.exit(1)
+def build_parser():
+    p = argparse.ArgumentParser(description="Ask questions about a document using GPT.")
+    p.add_argument("file", help="Path to .txt or .pdf document")
+    p.add_argument("--model", default="gpt-3.5-turbo", help="OpenAI model to use")
+    p.add_argument("--max-chars", type=int, default=4000, help="Max chars to send")
+    return p
 
-def ask(text: str, question: str) -> str:
+def ask(text, question, model, max_chars):
+    import openai
     resp = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+        model=model,
         messages=[
-            {"role": "system", "content": f"Answer questions using this document:\n\n{text[:4000]}"},
+            {"role": "system", "content": f"Answer questions using this document:\n\n{text[:max_chars]}"},
             {"role": "user", "content": question},
         ],
     )
     return resp.choices[0].message.content
 
-if __name__ == "__main__":
-    path = sys.argv[1] if len(sys.argv) > 1 else "doc.txt"
-    text = open(path).read()
-    print(f"Loaded: {path} ({len(text)} chars)")
+def main():
+    args = build_parser().parse_args()
+    openai.api_key = os.environ.get("OPENAI_API_KEY")
+    text = open(args.file).read()
+    print(f"Loaded: {args.file} ({len(text)} chars)\nType 'exit' to quit.\n")
     while True:
-        q = input("\n> ")
+        q = input("> ")
         if q.lower() in ("q", "quit", "exit"):
             break
-        print(textwrap.fill(ask(text, q), 80))
+        print(textwrap.fill(ask(text, q, args.model, args.max_chars), 80))
+
+if __name__ == "__main__":
+    main()
