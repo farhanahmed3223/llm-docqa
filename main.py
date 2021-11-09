@@ -1,33 +1,42 @@
 import openai, os, sys, argparse, textwrap
 
-def build_parser():
-    p = argparse.ArgumentParser(description="Ask questions about a document using GPT.")
-    p.add_argument("file", help="Path to .txt or .pdf document")
-    p.add_argument("--model", default="gpt-3.5-turbo", help="OpenAI model to use")
-    p.add_argument("--max-chars", type=int, default=4000, help="Max chars to send")
-    return p
+MAX_TOKENS = 3000
 
-def ask(text, question, model, max_chars):
-    import openai
+def chunk_text(text: str, max_chars: int = 12000):
+    """Split text into rough chunks."""
+    chunks = []
+    while text:
+        chunks.append(text[:max_chars])
+        text = text[max_chars:]
+    return chunks
+
+def ask(chunks, question, model):
+    # Use first chunk for now — will do proper retrieval later
+    context = chunks[0] if chunks else ""
     resp = openai.ChatCompletion.create(
         model=model,
         messages=[
-            {"role": "system", "content": f"Answer questions using this document:\n\n{text[:max_chars]}"},
+            {"role": "system", "content": f"Answer using this text:\n\n{context}"},
             {"role": "user", "content": question},
         ],
     )
     return resp.choices[0].message.content
 
 def main():
-    args = build_parser().parse_args()
-    openai.api_key = os.environ.get("OPENAI_API_KEY")
+    import argparse
+    p = argparse.ArgumentParser()
+    p.add_argument("file")
+    p.add_argument("--model", default="gpt-3.5-turbo")
+    args = p.parse_args()
+    openai.api_key = os.environ["OPENAI_API_KEY"]
     text = open(args.file).read()
-    print(f"Loaded: {args.file} ({len(text)} chars)\nType 'exit' to quit.\n")
+    chunks = chunk_text(text)
+    print(f"Split into {len(chunks)} chunks")
     while True:
         q = input("> ")
-        if q.lower() in ("q", "quit", "exit"):
+        if q.lower() in ("exit", "q"):
             break
-        print(textwrap.fill(ask(text, q, args.model, args.max_chars), 80))
+        print(ask(chunks, q, args.model))
 
 if __name__ == "__main__":
     main()
