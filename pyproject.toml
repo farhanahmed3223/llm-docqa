@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "llm-docqa"
+version = "0.2.0"
+description = "Ask questions about documents using OpenAI embeddings and GPT"
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.0.0",
+    "pymupdf>=1.23.0",
+    "tiktoken>=0.5.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+docqa = "src.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
