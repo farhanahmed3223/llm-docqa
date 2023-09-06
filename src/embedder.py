@@ -1,14 +1,14 @@
-"""Generate and persist OpenAI embeddings."""
+"""Generate and persist OpenAI embeddings using openai>=1.0 SDK."""
 import json, os
 from src.chunker import Chunk
 from src.history import get_db
 
-EMBED_MODEL = "text-embedding-ada-002"
+EMBED_MODEL = "text-embedding-3-small"
 EMBED_BATCH = 100
 
 def embed_chunks(session_id: int, chunks: list[Chunk]) -> None:
-    import openai
-    openai.api_key = os.environ["OPENAI_API_KEY"]
+    from openai import OpenAI
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     db = get_db()
     db.executescript("""
         CREATE TABLE IF NOT EXISTS chunks (
@@ -23,7 +23,7 @@ def embed_chunks(session_id: int, chunks: list[Chunk]) -> None:
     """)
     for i in range(0, len(chunks), EMBED_BATCH):
         batch = chunks[i:i+EMBED_BATCH]
-        resp = openai.Embedding.create(model=EMBED_MODEL, input=[c.content for c in batch])
+        resp = client.embeddings.create(model=EMBED_MODEL, input=[c.content for c in batch])
         rows = [
             (session_id, c.content, c.start_char, c.end_char, c.page_num,
              json.dumps(e.embedding))
@@ -36,7 +36,7 @@ def embed_chunks(session_id: int, chunks: list[Chunk]) -> None:
         db.commit()
 
 def embed_query(query: str) -> list[float]:
-    import openai
-    openai.api_key = os.environ["OPENAI_API_KEY"]
-    resp = openai.Embedding.create(model=EMBED_MODEL, input=[query])
+    from openai import OpenAI
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    resp = client.embeddings.create(model=EMBED_MODEL, input=[query])
     return resp.data[0].embedding
