@@ -1,8 +1,8 @@
-"""Lightweight SQLite conversation history."""
-import sqlite3
-import os
+"""Lightweight SQLite conversation history and chunk store."""
+import sqlite3, os
+from pathlib import Path
 
-_DB_PATH = os.path.expanduser("~/.docqa.db")
+_DB_PATH = os.environ.get("DOCQA_DB_PATH", str(Path.home() / ".docqa.db"))
 _db = None
 
 def get_db():
@@ -27,6 +27,17 @@ def _create_tables(db):
             content TEXT NOT NULL,
             created_at TEXT DEFAULT (datetime('now'))
         );
+        CREATE TABLE IF NOT EXISTS chunks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER NOT NULL,
+            content TEXT NOT NULL,
+            start_char INTEGER,
+            end_char INTEGER,
+            page_num INTEGER,
+            embedding TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_chunks_session ON chunks(session_id);
+        CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
     """)
     db.commit()
 
@@ -38,16 +49,12 @@ def new_session(filepath: str) -> int:
 
 def add_message(session_id: int, role: str, content: str):
     db = get_db()
-    db.execute(
-        "INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?)",
-        (session_id, role, content),
-    )
+    db.execute("INSERT INTO messages (session_id,role,content) VALUES (?,?,?)", (session_id, role, content))
     db.commit()
 
 def get_history(session_id: int) -> list[dict]:
     db = get_db()
     rows = db.execute(
-        "SELECT role, content FROM messages WHERE session_id=? ORDER BY id",
-        (session_id,),
+        "SELECT role,content FROM messages WHERE session_id=? ORDER BY id", (session_id,)
     ).fetchall()
     return [{"role": r["role"], "content": r["content"]} for r in rows]
